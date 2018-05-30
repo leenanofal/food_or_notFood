@@ -22,8 +22,8 @@ class LeenaNet:
     def conv2d(x,filters, kernel_size,strides,padding, activation='relu'):
 
         x = Conv2D(filters=filters, kernel_size=kernel_size, strides=strides,padding=padding)(x)
-        x = BatchNormalization()(x)
         if activation is not None:
+            x = BatchNormalization()(x)
             x = Activation(activation)(x)
         return x
 

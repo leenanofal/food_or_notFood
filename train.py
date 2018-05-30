@@ -1,7 +1,7 @@
 import numpy as np 
 import json
 from sklearn.model_selection import train_test_split
-from keras.optimizers import SGD
+from keras.optimizers import SGD, RMSprop
 from sklearn.metrics import classification_report
 import imageloader
 from imutils import paths
@@ -60,7 +60,8 @@ def main():
     print(Y[0])
     #initialize model
     print('COMPILING MODEL')
-    opt = SGD(lr=0.01)
+    #opt = SGD(lr=0.01)
+    opt = RMSprop(lr=0.045, rho=0.9, epsilon=1.0, decay=0.9)
     #model = ShallowNet.build(width=299, height=299, depth=3, classes=1)
     model = LeenaNet.build(width=299, height=299, depth=3, classes=1)
     model.compile(loss="binary_crossentropy", optimizer=opt,
