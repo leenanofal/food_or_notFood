@@ -9,7 +9,7 @@
 
 import numpy as np 
 from keras.models import Sequential, Model
-from keras.layers import Dense, Dropout, Activation, Flatten, Convolution2D, MaxPooling2D, Input, Concatenate, Add, Lambda
+from keras.layers import Dense, Dropout, Activation, Flatten, Convolution2D, MaxPooling2D, Input, Concatenate, Add, Lambda, AveragePooling2D, BactchNormalization
 from keras.utils import np_utils
 from keras.models import Sequential
 from keras.layers.convolutional import Conv2D
@@ -22,6 +22,7 @@ class LeenaNet:
     def conv2d(x,filters, kernel_size,strides,padding, activation='relu'):
 
         x = Conv2D(filters=filters, kernel_size=kernel_size, strides=strides,padding=padding)(x)
+        x = BatchNormalization()(x)
         if activation is not None:
             x = Activation(activation)(x)
         return x
@@ -105,8 +106,8 @@ class LeenaNet:
     @staticmethod
     def incep_resnet_b(x, scale=0.2):
         x_orig = x
-        print("original x")
-        print(x_orig)
+        #print("original x")
+        #print(x_orig)
         x_a = LeenaNet.conv2d(x, 128, (1,1), 1, 'same') #17x17x128
         x_a = LeenaNet.conv2d(x_a, 160, (1,7), 1, 'same') #17x17x160
         x_a = LeenaNet.conv2d(x_a, 192, (7,1), 1, 'same') #17x17x192
@@ -115,13 +116,45 @@ class LeenaNet:
         ###Another mistake in paper. It says the number of filters 
         ###should be 1154 but that won't work with the previous layer's output 
         ###which is 1152
-        x = LeenaNet.conv2d(x, 1152, (1,1), 1, 'same', None) #17x17x1154
+        x = LeenaNet.conv2d(x, 1152, (1,1), 1, 'same', None) #17x17x1152
         x_orig_scaled = Lambda(lambda z: z * scale)(x_orig)
-        print('new x: ',x)
+        #print('new x: ',x)
         x = Add()([x, x_orig_scaled])
         x = Activation('relu')(x)
         return x
         
+    #block5
+    @staticmethod
+    def reduction_b(x):
+        x_a = LeenaNet.conv2d(x, 256, (1,1), 1, 'same') #17x17x256
+        x_a = LeenaNet.conv2d(x_a,288,(3,3),1,'same') #17x17x288
+        x_a = LeenaNet.conv2d(x_a,320,(3,3),2,'valid') # 8 x 8 x 320
+        x_b = LeenaNet.conv2d(x,256,(1,1),1,'same') #17x17x256
+        x_b = LeenaNet.conv2d(x_b,288,(3,3),2,'valid') # 8 x 8 x 288
+        x_c = LeenaNet.conv2d(x,256,(1,1),1,'same') #17x17x256
+        x_c = LeenaNet.conv2d(x_c,384,(3,3),2,'valid') # 8 x 8 x384
+        x_d = MaxPooling2D((3,3), 2, 'valid')(x) #8x8x1152
+        x = Concatenate()([x_a,x_b,x_c,x_d])# final output 8x8x2144
+        return x
+
+    #block6
+    @staticmethod
+    def incep_resnet_c(x, scale):
+        x_orig = x
+        x_a = LeenaNet.conv2d(x,192,(1,1),1,'same') #8x8x192
+        x_a = LeenaNet.conv2d(x_a,224,(1,3),1,'same') #8x8x224
+        x_a = LeenaNet.conv2d(x_a,256,(3,1),1,'same') #8x8x256
+        x_b = LeenaNet.conv2d(x,192,(1,1),1,'same') #8x8x192
+        x = Concatenate()([x_a, x_b])
+        ###Mistake #3 in paper: the next layer, according to paper, 
+        ###will need 2048 filters, however, that will not compile
+        ###because output from previous layer is 2144
+        x = LeenaNet.conv2d(x, 2144, (1,1), 1, 'same') #8x8x2144
+        x_orig_scaled = Lambda(lambda z: z * scale)(x_orig)
+        x = Add()([x, x_orig_scaled])
+        x = Activation('relu')(x)
+        return x
+
 
     @staticmethod
     def build(width, height, depth, classes):
@@ -134,22 +167,32 @@ class LeenaNet:
         #Building Model 
         x = Input(shape=inputShape)
         y = x
-        #block1
+        #block1 'stem'
         y = LeenaNet.stem(y) #output 35x35x384
         y = Activation('relu')(y) #activation f(n) after block1
-        #block2 5x
+        #block2 'inception-resnet-a' 5x
         for i in range(5):
             y = LeenaNet.incep_resnet_a(y, scale)
-        #block3 reduction
+        #block3 'reduction-a'
         y = LeenaNet.reduction_a(y) #output 17x17x1152
         y = Activation('relu')(y) #activation fn after block3
-        #block4 10x
+        #block4 'inception-resnet-b' 10x
         ###mistake2 in the Inception-ResNet-v2 paper's diagram of block4
         ###says 1154 filters which means the output is 17x17x1154, however, 
         ###the model will not compile because the previous layer's output 
         ###is 1152
         for i in range(10):
             y = LeenaNet.incep_resnet_b(y, scale) #17x17x1152
+        #block5 'reduction-b'
+        y = LeenaNet.reduction_b(y) #output 8x8x2144
+        y = Activation('relu')(y) #activation fn after block5
+        #block6 'inception-resnet-c' 5x
+        for i in range(5):
+            y = LeenaNet.incep_resnet_c(y,scale) #8x8x2144
+        #average pooling
+        y = AveragePooling2D((3,3),1,'same')(y) #8x8x2144
+        #Dropout (keep 0.8)
+        y = Dropout(0.2)(y)
         y = Flatten()(y)
         y = Dense(1)(y)
         y = Activation('sigmoid')(y)
