@@ -23,7 +23,8 @@ class LeenaNet:
 
         x = Conv2D(filters=filters, kernel_size=kernel_size, strides=strides,padding=padding)(x)
         if activation is not None:
-            x = BatchNormalization()(x)
+            x = BatchNormalization(scale=False)(x)
+            #x = BatchNormalization()(x)
             x = Activation(activation)(x)
         return x
 
@@ -84,9 +85,9 @@ class LeenaNet:
         x_b = LeenaNet.conv2d(x_b, 32, (3,3), 1, 'same') #35x35x32
         x_c = LeenaNet.conv2d(x, 32, (1,1), 1, 'same') #35x35x32
         x = Concatenate()([x_a, x_b, x_c]) 
-        x = LeenaNet.conv2d(x, 384, (1,1), 1, 'same') #35 x 35 x 384
-        x_orig_scaled = Lambda(lambda z: z * scale)(x_orig)
-        x = Add()([x, x_orig_scaled])
+        x = LeenaNet.conv2d(x, 384, (1,1), 1, 'same', None) #35 x 35 x 384
+        x_scaled = Lambda(lambda z: z * scale)(x)
+        x = Add()([x_orig, x_scaled])
         x = Activation('relu')(x)
         return x
 
@@ -117,9 +118,9 @@ class LeenaNet:
         ###should be 1154 but that won't work with the previous layer's output 
         ###which is 1152
         x = LeenaNet.conv2d(x, 1152, (1,1), 1, 'same', None) #17x17x1152
-        x_orig_scaled = Lambda(lambda z: z * scale)(x_orig)
+        x_scaled = Lambda(lambda z: z * scale)(x)
         #print('new x: ',x)
-        x = Add()([x, x_orig_scaled])
+        x = Add()([x_orig, x_scaled])
         x = Activation('relu')(x)
         return x
         
@@ -149,9 +150,9 @@ class LeenaNet:
         ###Mistake #3 in paper: the next layer, according to paper, 
         ###will need 2048 filters, however, that will not compile
         ###because output from previous layer is 2144
-        x = LeenaNet.conv2d(x, 2144, (1,1), 1, 'same') #8x8x2144
-        x_orig_scaled = Lambda(lambda z: z * scale)(x_orig)
-        x = Add()([x, x_orig_scaled])
+        x = LeenaNet.conv2d(x, 2144, (1,1), 1, 'same', None) #8x8x2144
+        x_scaled = Lambda(lambda z: z * scale)(x)
+        x = Add()([x_orig, x_scaled])
         x = Activation('relu')(x)
         return x
 
@@ -190,7 +191,8 @@ class LeenaNet:
         for i in range(5):
             y = LeenaNet.incep_resnet_c(y,scale) #8x8x2144
         #average pooling
-        y = AveragePooling2D((3,3),1,'same')(y) #8x8x2144
+        y = GlobalAveragePooling2D()(y) #8x8x2144
+        #y = AveragePooling2D((3,3),1,'same')(y) #8x8x2144
         #Dropout (keep 0.8)
         y = Dropout(0.2)(y)
         y = Flatten()(y)
