@@ -9,7 +9,7 @@
 
 import numpy as np 
 from keras.models import Sequential, Model
-from keras.layers import Dense, Dropout, Activation, Flatten, Convolution2D, MaxPooling2D, Input, Concatenate, Add, Lambda, AveragePooling2D, BatchNormalization
+from keras.layers import Dense, Dropout, Activation, Flatten, Convolution2D, MaxPooling2D, Input, Concatenate, Add, Lambda, AveragePooling2D, BatchNormalization, GlobalAveragePooling2D
 from keras.utils import np_utils
 from keras.models import Sequential
 from keras.layers.convolutional import Conv2D
