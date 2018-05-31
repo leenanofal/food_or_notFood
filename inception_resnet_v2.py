@@ -195,7 +195,7 @@ class LeenaNet:
         #y = AveragePooling2D((3,3),1,'same')(y) #8x8x2144
         #Dropout (keep 0.8)
         y = Dropout(0.2)(y)
-        y = Flatten()(y)
+        #y = Flatten()(y)
         y = Dense(1)(y)
         y = Activation('sigmoid')(y)
         #print(y)
