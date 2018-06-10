@@ -12,7 +12,7 @@ import imagepreprocessor as mp
 from keras import backend as K
 from keras.callbacks import TensorBoard, ModelCheckpoint
 from leena_logger import LeenaLogger
-
+from keras.models import load_model
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-d", "--dataset", default='/home/Leena/dataset/photos/', help="path to input dataset")
@@ -46,7 +46,8 @@ def main():
     image_width = 299
     image_height = 299
     num_epochs = 30
-    steps_per_epoch=5
+    #steps_per_epoch=5
+    epoch_split = 5
 
     # hyperparameters to play with
     epoch_size = 1000 # maximum 206949
@@ -54,6 +55,12 @@ def main():
     momentum= 0.3 #0.5 #0.2
     decay = 0.001
     batch_size = 32
+   
+
+    if (epoch_size * (1-test_size)) % epoch_split != 0:
+        print("ERROR: make sure even split")
+        exit()
+
     # model parameters? 
 
     jsonFile = open(args["dataset"]+'photos.json')
@@ -102,9 +109,24 @@ def main():
         print("Saving checkpoints...")
         modelCheckpoint = ModelCheckpoint(filepath="models/model_epsize%d_lr%f_mom%f_dec%f_bs%d_{epoch:02d}_{val_loss:.2f}.hdf5"%(epoch_size, learning_rate, momentum, decay, batch_size))
         callbacks.append(modelCheckpoint)
-    H = model.fit(trainX, trainY, validation_data=(testX, testY),
-            batch_size=batch_size, epochs=num_epochs, verbose=1, callbacks=callbacks, 
-            steps_per_epoch=steps_per_epoch)
+    
+    #splitting up the epochs so that I don't train on 200k images in one epoch
+    #training on 10k at a time
+    for ep_num in range(num_epochs):
+        for semi_ep_num in range(epoch_split):
+            start_idx = int(semi_ep_num*(len(trainX)/epoch_split))
+            end_idx = int((semi_ep_num+1)*(len(trainX)/epoch_split))
+            print("Epoch %d, Semi-epoch %d - idx[%d:%d]"%(ep_num, semi_ep_num, start_idx, end_idx))
+            semi_trainX = trainX[start_idx:end_idx]
+            semi_trainY = trainY[start_idx:end_idx]
+            
+            H = model.fit(semi_trainX, semi_trainY, validation_data=(testX, testY),
+                    batch_size=batch_size, epochs=(ep_num+1), initial_epoch=ep_num, verbose=1, callbacks=callbacks) 
+
+    
+#    H = model.fit(trainX, trainY, validation_data=(testX, testY),
+#            batch_size=batch_size, epochs=num_epochs, verbose=1, callbacks=callbacks, 
+#            steps_per_epoch=steps_per_epoch)
     
     
     # evaluate the network
