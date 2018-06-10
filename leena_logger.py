@@ -22,7 +22,7 @@ class LeenaLogger(keras.callbacks.Callback):
             self.header_keys = sorted(logs.keys())
             self.f.write("epoch," + (','.join(self.header_keys)) + "\n")
             self.header_written = True
-        batch_line = [epoch]
+        batch_line = [str(epoch)]
         for k in self.header_keys:
             batch_line.append(str(logs[k]))
         self.f.write(','.join(batch_line) + "\n")

@@ -48,16 +48,16 @@ def pred_true_diff(y_true, y_pred):
 def main():
 
     # settings
-    test_size = 0.25
+    test_size = 0.01
     random_state = 42
     image_width = 299
     image_height = 299
-    num_epochs = 30
+    num_epochs = 2
     #steps_per_epoch=5
-    epoch_split = 5
+    epoch_split = 30
 
     # hyperparameters to play with
-    epoch_size = 1000 # maximum 206949
+    epoch_size = 200000 # maximum 206949
     learning_rate = 0.001
     momentum= 0.3 #0.5 #0.2
     decay = 0.001
@@ -81,6 +81,10 @@ def main():
     if args['model']:
         model = load_model(args['model'])
     else:
+        #initialize model
+        print('COMPILING MODEL')
+        opt = SGD(lr=learning_rate, momentum=momentum, decay=decay)
+        #opt = RMSprop(lr=0.01, rho=0.9, epsilon=0.7, decay=0.9) #epsilon changed from 1
         #model = ShallowNet.build(width=299, height=299, depth=3, classes=1)
         model = LeenaNet.build(width=image_width, height=image_height, depth=3, classes=1)
         model.compile(loss="binary_crossentropy", optimizer=opt,
@@ -117,10 +121,6 @@ def main():
         #todo: add validation set
 
         print(Y[0])
-        #initialize model
-        print('COMPILING MODEL')
-        opt = SGD(lr=learning_rate, momentum=momentum, decay=decay)
-        #opt = RMSprop(lr=0.01, rho=0.9, epsilon=0.7, decay=0.9) #epsilon changed from 1
 
         print(K.image_data_format())
         # train the network
