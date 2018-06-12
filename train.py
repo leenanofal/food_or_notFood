@@ -14,6 +14,9 @@ from keras.callbacks import TensorBoard, ModelCheckpoint
 from leena_logger import LeenaLogger
 from keras.models import load_model
 
+#TEMP TODO
+import batchloader
+
 ap = argparse.ArgumentParser()
 ap.add_argument("-d", "--dataset", default='/home/Leena/dataset/photos/', help="path to input dataset")
 ap.add_argument("-e", "--evaluate", required=False, action='store_true', help="Only evaluate, no training")
@@ -48,16 +51,16 @@ def pred_true_diff(y_true, y_pred):
 def main():
 
     # settings
-    test_size = 0.01
+    test_size = 0.02
     random_state = 42
     image_width = 299
     image_height = 299
     num_epochs = 2
     #steps_per_epoch=5
-    epoch_split = 30
+    epoch_split = 20
 
     # hyperparameters to play with
-    epoch_size = 200000 # maximum 206949
+    epoch_size = 140000 # maximum 206949
     learning_rate = 0.001
     momentum= 0.3 #0.5 #0.2
     decay = 0.001
@@ -75,6 +78,10 @@ def main():
     array_maker = mp.ImageToArrayPreprocessor()
     il = imageloader.SimpleDatasetLoader(preprocessors=[resizer, array_maker]) #building the image loader
     (images, img_ids) = il.load(imagePaths, max_images=epoch_size, verbose=500)
+    #(images, img_ids) = batchloader.parallel_load(il, imagePaths, numImages=epoch_size, batchSize=500, numThreads=20)
+    #TEMP TODO
+    print("TEMP TEMP TEMP " + str(len(images)))
+    #exit()
     X = images #X is an array of all the images 
     
     # model building/restoring

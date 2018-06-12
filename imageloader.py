@@ -13,11 +13,13 @@ class SimpleDatasetLoader:
         # empty list
         if self.preprocessors is None:
             self.preprocessors = []
-
+        self.total_loaded = 0
     def load(self, imagePaths, max_images=-1, verbose=-1):
         # initialize the list of features and labels
         data = []
         labels = []
+        self.total_loaded += len(imagePaths)
+        print("loading... %d" % self.total_loaded)
 
         # loop over the input images
         for (i, imagePath) in enumerate(imagePaths):
