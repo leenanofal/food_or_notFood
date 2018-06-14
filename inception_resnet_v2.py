@@ -1,4 +1,4 @@
-#####
+######
 #Author: Leena Nofal
 #This code is an implementation of a deep learning classifier 
 #which classifies images from the Yelp Dataset as 'food' or 'not food' 

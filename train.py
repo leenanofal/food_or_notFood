@@ -13,13 +13,13 @@ from keras import backend as K
 from keras.callbacks import TensorBoard, ModelCheckpoint
 from leena_logger import LeenaLogger
 from keras.models import load_model
-
-#TEMP TODO
 import batchloader
+import time
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-d", "--dataset", default='/home/Leena/dataset/photos/', help="path to input dataset")
 ap.add_argument("-e", "--evaluate", required=False, action='store_true', help="Only evaluate, no training")
+ap.add_argument("-t", "--testdata", required=False, action='store_true', help="Only loads test data for evaluation")
 ap.add_argument("-c", "--checkpoint", required=False, action='store_true', help="Saves checkpoints")
 ap.add_argument("-m", "--model", required=False, help="Path to load model")
 args = vars(ap.parse_args())
@@ -77,12 +77,15 @@ def main():
     resizer = mp.ImageResize(299, 299)
     array_maker = mp.ImageToArrayPreprocessor()
     il = imageloader.SimpleDatasetLoader(preprocessors=[resizer, array_maker]) #building the image loader
-    (images, img_ids) = il.load(imagePaths, max_images=epoch_size, verbose=500)
-    #(images, img_ids) = batchloader.parallel_load(il, imagePaths, numImages=epoch_size, batchSize=500, numThreads=20)
-    #TEMP TODO
-    print("TEMP TEMP TEMP " + str(len(images)))
-    #exit()
-    X = images #X is an array of all the images 
+
+    #print(imagePaths)
+    if not args['testdata']:
+        if args['evaluate']:
+            (images, img_ids) = il.load(imagePaths, max_images=epoch_size, verbose=500)
+        else:
+            (images, img_ids) = batchloader.parallel_load(il, imagePaths, numImages=epoch_size, batchSize=500, numThreads=20)
+        
+        X = images #X is an array of all the images 
     
     # model building/restoring
     if args['model']:
@@ -97,6 +100,7 @@ def main():
         model.compile(loss="binary_crossentropy", optimizer=opt,
                 metrics=['binary_accuracy','mean_absolute_error'])
    
+    #Running model on any images user inputs 
     if args['evaluate']:
         print("evaluating performance...")
         # TODO: image evaluation
@@ -105,6 +109,80 @@ def main():
             imgPath = imagePaths[i]
             pred = confidence_to_food_or_not(predictions[i])
             print("Prediction: %s ; Confidence %f; Image: %s" % (pred[0], pred[1], imgPath))
+    
+
+    #evaluating the test data
+    #model has never seen test images before evaluation
+    elif args['testdata']:
+        print("Running test set...")
+        # TODO: image evaluation
+        begin = 140000
+        num_test = 2000
+        (images, img_ids) = batchloader.parallel_load(il, imagePaths[begin:begin+num_test], numImages=num_test, batchSize=100, numThreads=20)
+        X = images #X is an array of all the images 
+        
+        jsonFile = open(args["dataset"]+'photos.json')
+        infos = []
+        #loop through the lines in the json file and append each one into the infos array
+        for line in jsonFile:
+            photo_info = json.loads(line) #gets each line in the json file
+            infos.append(photo_info)
+        
+        img_lab = image_label(infos)
+        Y = []     #corresponding labels for each image in X
+        
+        #add the labels into a list
+        for image_id in img_ids:
+            y = img_lab[image_id]
+            Y.append(y)
+        predictions = model.predict(X, verbose=1)
+
+        
+        
+        ##METRICS
+        
+        #Accuracy --- the fraction of predictions that the model got correct. 
+        rounded_predictions = np.squeeze(np.rint(predictions)) # rounds the predictions to the nearest int -- i.e. 1 or 0
+        print(rounded_predictions)
+        rounded_truth = np.rint(Y) # rounds the label values because they are floats
+        print(rounded_truth)
+        tru_pos = np.sum((rounded_truth == 1) & (rounded_predictions == 1))
+        print(tru_pos)
+        tru_neg = np.sum((rounded_truth == 0) & (rounded_predictions == 0))
+        num_correct = tru_pos + tru_neg
+        total_pics = num_test
+        acc = num_correct/total_pics
+        print("Accuracy: " , acc)
+
+        #Precision = true positive rate / (true positive rate + false positive rate)---identifies the proportion 
+        #   of the positives identified were actually positive.
+        false_pos = np.sum((rounded_truth == 0) & (rounded_predictions == 1))
+        precision = tru_pos / (tru_pos + false_pos)
+        print("Precision: " , precision)
+        
+        #Recall = true positive rate / (true positive rate + false negative rate) --- identifies how much 
+        #   of the actual positives were correctly identified 
+        false_neg = np.sum((rounded_truth == 1) & (rounded_predictions == 0))
+        recall = tru_pos / (tru_pos + false_neg)
+        print("Recall: " , recall)
+
+        #Specificity --- the percentative of negatives we predict correctly. 
+        specificity = tru_neg/(tru_neg + false_pos)
+        print("Specificity" , specificity)
+        
+        logname = "./logs/" + "test_results" + "_" + time.strftime("%Y%m%d_%H%M%S") + ".csv"
+        f = open(logname, 'w')
+        
+        f.write("image,prediction,truth,correct,classification,confidence")
+        f.write("\n")
+        for i in range(total_pics):
+            predi = confidence_to_food_or_not(predictions[i])
+            f.write("%s,%d,%d,%d,%s,%f"%(img_ids[i],int(rounded_predictions[i]), int(rounded_truth[i]), int(rounded_predictions[i] == rounded_truth[i]),predi[0],predi[1]))
+            f.write("\n")
+
+        f.close()
+
+
     else:
         # train, not evaluate
 
